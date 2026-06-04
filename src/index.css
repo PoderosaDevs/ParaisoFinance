@@ -1,0 +1,19 @@
+@import "tailwindcss";
+
+@theme {
+  --color-brand-green: #064E3B;
+  --color-brand-green-hover: #053e2f;
+}
+
+body {
+  @apply bg-white text-gray-900 font-sans;
+}
+
+@keyframes shrink {
+  from {
+    width: 100%;
+  }
+  to {
+    width: 0%;
+  }
+}
