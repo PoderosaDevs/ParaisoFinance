@@ -1,13 +1,13 @@
 import { useState, useEffect } from 'react';
 import { 
   Layers, Loader2, AlertTriangle, RefreshCw, Eye, Trash2, 
-  Layers3, ShoppingBag, CreditCard, X, CheckCircle2, Info
+  Layers3, ShoppingBag, CreditCard, X, CheckCircle2, Info, Pencil, Check
 } from 'lucide-react';
 
 import Table, { Column } from '../components/Table';
 import Modal from '../components/Modal';
 
-// Alterado para consumir o serviço unificado criado no passo anterior
+// Consome o serviço unificado criado nos passos anteriores
 import { batchService, Batch as ApiBatch } from '../api-routes/batch';
 
 interface UnifiedBatch {
@@ -44,6 +44,11 @@ export default function Lotes() {
   const [totalPages, setTotalPages] = useState<number>(1);
   const [totalRecords, setTotalRecords] = useState<number>(0);
 
+  // ─── ESTADOS DE EDIÇÃO EM LINHA (RENAME) ───
+  const [editingBatchId, setEditingBatchId] = useState<string | null>(null);
+  const [editingNameValue, setEditingNameValue] = useState<string>('');
+  const [renamingLoading, setRenamingLoading] = useState<boolean>(false);
+
   // ─── ESTADOS DE ALERTAS CUSTOMIZADOS ───
   const [alert, setAlert] = useState<AlertState>({
     show: false,
@@ -78,7 +83,6 @@ export default function Lotes() {
     setLoading(true);
     setError(null);
     try {
-      // Consome a rota limpa e centralizada do Back-end
       const response = await batchService.list(currentPage, 10);
 
       const consolidated = (response.data || []).map((b: ApiBatch) => ({
@@ -105,6 +109,36 @@ export default function Lotes() {
   useEffect(() => {
     loadAllBatches(page);
   }, [page]);
+
+  // ─── MANIPULAÇÃO DO PROCESSO DE RENOMEAR LOTE ───
+  const startRename = (id: string, currentName: string) => {
+    setEditingBatchId(id);
+    setEditingNameValue(currentName);
+  };
+
+  const handleExecuteRename = async (id: string) => {
+    if (!editingNameValue.trim()) {
+      triggerAlert('warning', 'Validação', 'O nome do lote não pode ficar em branco.');
+      return;
+    }
+
+    setRenamingLoading(true);
+    try {
+      await batchService.rename(id, editingNameValue.trim());
+      
+      // Atualiza o estado local na tabela imediatamente sem precisar recarregar toda a API
+      setUnifiedBatches(prev => 
+        prev.map(b => b.id === id ? { ...b, name: editingNameValue.trim() } : b)
+      );
+      
+      triggerAlert('success', 'Lote Renomeado', 'O nome do lote foi atualizado com sucesso.');
+      setEditingBatchId(null);
+    } catch (err: any) {
+      triggerAlert('error', 'Falha ao renomear', err.message || 'Não foi possível alterar a descrição.');
+    } finally {
+      setRenamingLoading(false);
+    }
+  };
 
   // ─── REMOÇÃO INTELIGENTE VIA CONFIRMAÇÃO CUSTOMIZADA ───
   const openDeleteConfirmation = (id: string, name: string, originType: 'sale' | 'payment') => {
@@ -154,7 +188,55 @@ export default function Lotes() {
     },
     {
       header: 'Nome do Arquivo / Descrição',
-      render: (b) => <span className="font-semibold text-gray-900 text-xs">{b.name}</span>
+      render: (b) => {
+        const isEditing = editingBatchId === b.id;
+
+        if (isEditing) {
+          return (
+            <div className="flex items-center gap-1.5 max-w-xs sm:max-w-md">
+              <input 
+                type="text"
+                value={editingNameValue}
+                onChange={(e) => setEditingNameValue(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') handleExecuteRename(b.id);
+                  if (e.key === 'Escape') setEditingBatchId(null);
+                }}
+                disabled={renamingLoading}
+                className="flex-1 px-2 py-1 text-xs border border-slate-300 focus:outline-none focus:border-indigo-500 font-medium text-gray-950 bg-white rounded-md shadow-inner"
+                autoFocus
+              />
+              <button 
+                onClick={() => handleExecuteRename(b.id)}
+                disabled={renamingLoading}
+                className="p-1 text-emerald-600 hover:bg-emerald-50 rounded-md cursor-pointer disabled:opacity-50"
+              >
+                {renamingLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />}
+              </button>
+              <button 
+                onClick={() => setEditingBatchId(null)}
+                disabled={renamingLoading}
+                className="p-1 text-gray-400 hover:bg-gray-100 rounded-md cursor-pointer disabled:opacity-50"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          );
+        }
+
+        return (
+          <div 
+            onClick={() => startRename(b.id, b.name)}
+            className="group flex items-center gap-1.5 cursor-pointer max-w-fit"
+            title="Clique para renomear este lote"
+          >
+            <span className="font-semibold text-gray-900 text-xs border-b border-dashed border-gray-400 group-hover:border-slate-800 group-hover:text-slate-950 transition-colors">
+              {b.name}
+            </span>
+            <Pencil className="w-3 h-3 text-gray-400 opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
+          </div>
+        );
+      }
     },
     {
       header: 'Tipo de Lote',
@@ -243,7 +325,7 @@ export default function Lotes() {
   return (
     <div className="space-y-8 animate-in fade-in duration-200 text-slate-950 relative">
       
-      {/* ─── BANNER DINÂMICO DE FEEDBACK (SUBSTITUTOR DO ALERT GOOGLE) ─── */}
+      {/* ─── BANNER DINÂMICO DE FEEDBACK ─── */}
       {alert.show && (
         <div className={`fixed top-5 right-5 z-50 flex items-start gap-3 p-4 rounded-xl border shadow-xl max-w-md animate-in slide-in-from-top-4 duration-300 ${
           alert.type === 'success' ? 'bg-emerald-50 border-emerald-200 text-emerald-900' : 
@@ -326,7 +408,7 @@ export default function Lotes() {
         </div>
       )}
 
-      {/* ─── MODAL DE CONFIRMAÇÃO DE DELEÇÃO LINDO ─── */}
+      {/* ─── MODAL DE CONFIRMAÇÃO DE DELEÇÃO ─── */}
       <Modal
         isOpen={confirmModal.show}
         onClose={() => setConfirmModal(prev => ({ ...prev, show: false }))}

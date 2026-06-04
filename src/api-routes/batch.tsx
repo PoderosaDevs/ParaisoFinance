@@ -62,6 +62,19 @@ export const batchService = {
     },
 
     /**
+     * Altera o nome de um lote específico
+     * PATCH /batches/:id/rename
+     */
+    rename: async (id: string, newName: string): Promise<{ message: string; batch: Batch }> => {
+        const res = await fetch(`${API_BASE_URL}/batches/${id.trim()}/rename`, {
+            method: 'PATCH',
+            headers: getRequestHeaders(), // Helper unificado de cabeçalhos (já inclui Content-Type e Auth)
+            body: JSON.stringify({ name: newName }),
+        });
+        return handleResponse<{ message: string; batch: Batch }>(res);
+    },
+
+    /**
      * Remove um lote e desfaz em cascata as modificações e status de vendas
      * DELETE /batches/:id
      */
