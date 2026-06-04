@@ -1,4 +1,10 @@
-const API_URL = 'http://localhost:3000';
+// Escolha a linha correspondente ao seu framework abaixo:
+// Para VITE:
+// O "(import.meta as any)" faz o TypeScript ignorar a trava de tipos nessa linha
+const API_URL = (import.meta as any).env.VITE_API_URL || 'http://localhost:3000';
+
+// Para NEXT.JS ou CREATE REACT APP clássico:
+// const API_URL = process.env.NEXT_PUBLIC_API_URL || process.env.REACT_APP_API_URL || 'http://localhost:3000';
 
 export const apiService = {
   // Envia os dados de login para o backend
