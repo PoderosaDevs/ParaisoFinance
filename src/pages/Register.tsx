@@ -1,15 +1,16 @@
 import { FormEvent, useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { Loader2 } from 'lucide-react';
+import { API_URL } from '../services/api';
 
 export default function Register() {
   const navigate = useNavigate();
-  
+
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
-  
+
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -26,7 +27,7 @@ export default function Register() {
 
     try {
       // Integração com a API local
-      const response = await fetch('http://localhost:3000/register', {
+      const response = await fetch(`${API_URL}/register`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name, email, password }),
@@ -57,19 +58,19 @@ export default function Register() {
           {error}
         </div>
       )}
-      
+
       <form className="space-y-4" onSubmit={handleSubmit}>
         <div>
           <label className="block text-xs font-semibold uppercase tracking-wider text-gray-700 mb-1.5">
             Nome Completo
           </label>
-          <input 
-            type="text" 
+          <input
+            type="text"
             required
             value={name}
             onChange={(e) => setName(e.target.value)}
-            className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:outline-none focus:ring-4 focus:ring-brand-green/10 focus:border-brand-green transition-all placeholder:text-gray-400 text-sm" 
-            placeholder="Seu nome" 
+            className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:outline-none focus:ring-4 focus:ring-brand-green/10 focus:border-brand-green transition-all placeholder:text-gray-400 text-sm"
+            placeholder="Seu nome"
           />
         </div>
 
@@ -77,13 +78,13 @@ export default function Register() {
           <label className="block text-xs font-semibold uppercase tracking-wider text-gray-700 mb-1.5">
             E-mail de Trabalho
           </label>
-          <input 
-            type="email" 
+          <input
+            type="email"
             required
             value={email}
             onChange={(e) => setEmail(e.target.value)}
-            className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:outline-none focus:ring-4 focus:ring-brand-green/10 focus:border-brand-green transition-all placeholder:text-gray-400 text-sm" 
-            placeholder="nome@empresa.com" 
+            className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:outline-none focus:ring-4 focus:ring-brand-green/10 focus:border-brand-green transition-all placeholder:text-gray-400 text-sm"
+            placeholder="nome@empresa.com"
           />
         </div>
 
@@ -91,13 +92,13 @@ export default function Register() {
           <label className="block text-xs font-semibold uppercase tracking-wider text-gray-700 mb-1.5">
             Senha
           </label>
-          <input 
-            type="password" 
+          <input
+            type="password"
             required
             value={password}
             onChange={(e) => setPassword(e.target.value)}
-            className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:outline-none focus:ring-4 focus:ring-brand-green/10 focus:border-brand-green transition-all placeholder:text-gray-400 text-sm" 
-            placeholder="No mínimo 8 caracteres" 
+            className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:outline-none focus:ring-4 focus:ring-brand-green/10 focus:border-brand-green transition-all placeholder:text-gray-400 text-sm"
+            placeholder="No mínimo 8 caracteres"
           />
         </div>
 
@@ -105,16 +106,16 @@ export default function Register() {
           <label className="block text-xs font-semibold uppercase tracking-wider text-gray-700 mb-1.5">
             Confirmar Senha
           </label>
-          <input 
-            type="password" 
+          <input
+            type="password"
             required
             value={confirmPassword}
             onChange={(e) => setConfirmPassword(e.target.value)}
-            className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:outline-none focus:ring-4 focus:ring-brand-green/10 focus:border-brand-green transition-all placeholder:text-gray-400 text-sm" 
-            placeholder="Repita sua senha" 
+            className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:outline-none focus:ring-4 focus:ring-brand-green/10 focus:border-brand-green transition-all placeholder:text-gray-400 text-sm"
+            placeholder="Repita sua senha"
           />
         </div>
-        
+
         <div className="flex items-start gap-2.5 py-1">
           <input type="checkbox" required id="terms" className="mt-1 accent-brand-green" />
           <label htmlFor="terms" className="text-xs text-gray-500 leading-normal">
@@ -122,8 +123,8 @@ export default function Register() {
           </label>
         </div>
 
-        <button 
-          type="submit" 
+        <button
+          type="submit"
           disabled={isSubmitting}
           className="w-full bg-brand-green hover:bg-brand-green-hover disabled:bg-brand-green/60 text-white font-bold py-3.5 rounded-xl transition-all shadow-xl shadow-brand-green/15 cursor-pointer text-sm mt-2 flex items-center justify-center gap-2"
         >
@@ -136,7 +137,7 @@ export default function Register() {
           )}
         </button>
       </form>
-      
+
       <p className="text-center mt-6 text-sm text-gray-500">
         Já possui uma conta?{' '}
         <Link to="/login" className="text-brand-green font-bold cursor-pointer hover:underline">

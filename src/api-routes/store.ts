@@ -23,7 +23,7 @@ export interface UpdateStorePayload {
 }
 
 // ─── API CLIENT INTERNO ───
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+const API_BASE_URL = (import.meta as any).env.VITE_API_URL || 'http://localhost:3000';
 
 async function handleResponse<T>(response: Response): Promise<T> {
     if (!response.ok) {
