@@ -16,6 +16,7 @@ import { ModalType } from '../types/financeiro';
 import { Marketplace, marketplaceService } from '../api-routes/marketplace';
 import { Sale, saleService, SalesSummaryResponse } from '../api-routes/sale';
 import { storeService } from '../api-routes/store';
+import { ImportDevolutionsModal } from '../components/Modals/ImportDevolucaoModal.tsx';
 
 export default function Financeiro() {
   const [search, setSearch] = useState("");
@@ -184,6 +185,13 @@ export default function Financeiro() {
   };
 
   const handleImportPagamentosFinish = (result: { batchId: string; salesImported: number }) => {
+    alert(`Sucesso! Lote de Pagamentos ${result.batchId} processado. ${result.salesImported} parcelas foram conciliadas.`);
+    closeModals();
+    setPage(1);
+    loadDashboardData();
+  };
+
+    const handleImportDevolucaoFinish = (result: { batchId: string; salesImported: number }) => {
     alert(`Sucesso! Lote de Pagamentos ${result.batchId} processado. ${result.salesImported} parcelas foram conciliadas.`);
     closeModals();
     setPage(1);
@@ -371,9 +379,11 @@ export default function Financeiro() {
 
       <ImportVendasModal isOpen={activeModal === 'import_venda'} onClose={closeModals} onFinish={handleImportVendasFinish} />
       <ImportPaymentsModal isOpen={activeModal === 'import_pagamento'} onClose={closeModals} onFinish={handleImportPagamentosFinish} />
+      <ImportDevolutionsModal isOpen={activeModal === 'import_devolucao'} onClose={closeModals} onFinish={handleImportDevolucaoFinish} />
+
 
       <Modal
-        isOpen={activeModal !== null && activeModal !== 'import_venda' && activeModal !== 'import_pagamento' && activeModal !== 'export_vendas'}
+        isOpen={activeModal !== null && activeModal !== 'import_venda' && activeModal !== 'import_pagamento' && activeModal !== 'import_devolucao' && activeModal !== 'export_vendas'}
         onClose={closeModals}
         title={modalImportTitle}
         footer={

@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
 import { 
   Layers, Loader2, AlertTriangle, RefreshCw, Eye, Trash2, 
-  Layers3, ShoppingBag, CreditCard, X, CheckCircle2, Info, Pencil, Check
+  Layers3, ShoppingBag, CreditCard, X, CheckCircle2, Info, Pencil, Check,
+  ArrowLeftRight // Novo ícone para devoluções
 } from 'lucide-react';
 
 import Table, { Column } from '../components/Table';
@@ -17,7 +18,7 @@ interface UnifiedBatch {
   updatedAt: string;
   recordsCount: number;
   totalValue: number;
-  originType: 'sale' | 'payment';
+  originType: 'sale' | 'payment' | 'devolution';
 }
 
 interface AlertState {
@@ -31,7 +32,7 @@ interface ConfirmModalState {
   show: boolean;
   batchId: string;
   batchName: string;
-  originType: 'sale' | 'payment';
+  originType: 'sale' | 'payment' | 'devolution';
 }
 
 export default function Lotes() {
@@ -67,7 +68,7 @@ export default function Lotes() {
   // ─── ESTADOS DO MODAL DE PREVIEW INTERNO ───
   const [isPreviewOpen, setIsPreviewOpen] = useState<boolean>(false);
   const [selectedBatchDetails, setSelectedBatchDetails] = useState<any | null>(null);
-  const [previewOrigin, setPreviewOrigin] = useState<'sale' | 'payment'>('sale');
+  const [previewOrigin, setPreviewOrigin] = useState<'sale' | 'payment' | 'devolution'>('sale');
   const [loadingDetails, setLoadingDetails] = useState<boolean>(false);
 
   // Auxiliar para disparar feedbacks bonitos na tela
@@ -85,15 +86,22 @@ export default function Lotes() {
     try {
       const response = await batchService.list(currentPage, 10);
 
-      const consolidated = (response.data || []).map((b: ApiBatch) => ({
-        id: b.id,
-        name: b.name,
-        createdAt: b.createdAt,
-        updatedAt: b.updatedAt,
-        recordsCount: Number(b.salesCount || 0),
-        totalValue: Number(b.totalBaseIcms || 0),
-        originType: b.type === 'PAYMENTS' ? 'payment' as const : 'sale' as const
-      }));
+      const consolidated = (response.data || []).map((b: ApiBatch) => {
+        // Tratativa dinâmica do tipo baseado no retorno da API
+        let originType: 'sale' | 'payment' | 'devolution' = 'sale';
+        if (b.type === 'PAYMENTS') originType = 'payment';
+        if (b.type === 'DEVOLUTIONS') originType = 'devolution';
+
+        return {
+          id: b.id,
+          name: b.name,
+          createdAt: b.createdAt,
+          updatedAt: b.updatedAt,
+          recordsCount: Number(b.salesCount  || 0), // Fallback caso mude o nome da propriedade na API
+          totalValue: Number(b.totalBaseIcms || 0),
+          originType
+        };
+      });
 
       setUnifiedBatches(consolidated);
       setTotalRecords(response.meta?.totalRecords || 0);
@@ -126,12 +134,11 @@ export default function Lotes() {
     try {
       await batchService.rename(id, editingNameValue.trim());
       
-      // Atualiza o estado local na tabela imediatamente sem precisar recarregar toda a API
       setUnifiedBatches(prev => 
         prev.map(b => b.id === id ? { ...b, name: editingNameValue.trim() } : b)
       );
       
-      triggerAlert('success', 'Lote Renomeado', 'O nome do lote foi atualizado com sucesso.');
+      triggerAlert('success', 'Lote Renomeado', 'O nome do lote foi updated com sucesso.');
       setEditingBatchId(null);
     } catch (err: any) {
       triggerAlert('error', 'Falha ao renomear', err.message || 'Não foi possível alterar a descrição.');
@@ -141,7 +148,7 @@ export default function Lotes() {
   };
 
   // ─── REMOÇÃO INTELIGENTE VIA CONFIRMAÇÃO CUSTOMIZADA ───
-  const openDeleteConfirmation = (id: string, name: string, originType: 'sale' | 'payment') => {
+  const openDeleteConfirmation = (id: string, name: string, originType: 'sale' | 'payment' | 'devolution') => {
     setConfirmModal({
       show: true,
       batchId: id,
@@ -164,7 +171,7 @@ export default function Lotes() {
   };
 
   // ─── INSPEÇÃO DINÂMICA ───
-  const handleOpenPreview = async (id: string, originType: 'sale' | 'payment') => {
+  const handleOpenPreview = async (id: string, originType: 'sale' | 'payment' | 'devolution') => {
     setLoadingDetails(true);
     setIsPreviewOpen(true);
     setPreviewOrigin(originType);
@@ -180,7 +187,7 @@ export default function Lotes() {
     }
   };
 
-  // ─── CONFIGURAÇÃO DE COLUNAS ───
+  // ─── CONFIGURAÇÃO DE COLUNAS DA TABELA PRINCIPAL ───
   const mainColumns: Column<UnifiedBatch>[] = [
     {
       header: 'Identificador do Lote',
@@ -241,13 +248,19 @@ export default function Lotes() {
     {
       header: 'Tipo de Lote',
       render: (b) => {
-        const isPayment = b.originType === 'payment';
+        // Centralização do estilo das Badges por tipo de lote
+        const badgeStyles = {
+          payment: { bg: 'bg-indigo-50 text-indigo-700 border-indigo-100', icon: <CreditCard className="w-3 h-3" />, label: 'Pagamentos' },
+          sale: { bg: 'bg-green-50 text-green-700 border-green-100', icon: <ShoppingBag className="w-3 h-3" />, label: 'Vendas' },
+          devolution: { bg: 'bg-amber-50 text-amber-700 border-amber-100', icon: <ArrowLeftRight className="w-3 h-3" />, label: 'Devoluções' }
+        };
+
+        const currentStyle = badgeStyles[b.originType] || badgeStyles.sale;
+
         return (
-          <span className={`inline-flex items-center gap-1 text-[10px] font-bold tracking-wider font-mono uppercase px-2 py-0.5 border ${
-            isPayment ? 'bg-indigo-50 text-indigo-700 border-indigo-100' : 'bg-green-50 text-green-700 border-green-100'
-          }`}>
-            {isPayment ? <CreditCard className="w-3 h-3" /> : <ShoppingBag className="w-3 h-3" />}
-            {isPayment ? 'Pagamentos' : 'Vendas'}
+          <span className={`inline-flex items-center gap-1 text-[10px] font-bold tracking-wider font-mono uppercase px-2 py-0.5 border ${currentStyle.bg}`}>
+            {currentStyle.icon}
+            {currentStyle.label}
           </span>
         );
       }
@@ -296,6 +309,7 @@ export default function Lotes() {
     }
   ];
 
+  // ─── CONFIGURAÇÕES DE COLUNAS DOS PREVIEWS ESPECÍFICOS ───
   const salesPreviewColumns: Column<any>[] = [
     { header: 'Nota Fiscal', render: (s) => <span className="font-mono text-xs font-bold">Nº {s.nf}</span> },
     { header: 'Data Emissão', render: (s) => <span className="text-gray-600">{s.date ? new Date(s.date).toLocaleDateString('pt-BR') : 'S/D'}</span> },
@@ -321,6 +335,44 @@ export default function Lotes() {
       render: (p) => <span className="font-mono font-bold text-indigo-700">{Number(p.repasse || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</span> 
     }
   ];
+
+  // Nova tabela de visualização para devoluções
+  const devolutionsPreviewColumns: Column<any>[] = [
+    { header: 'Cód. Devolução', render: (d) => <span className="font-mono text-xs font-bold">{d.id || d.devolutionCode}</span> },
+    { header: 'NF Original', render: (d) => <span className="font-mono text-xs text-gray-600">{d.originalNf ? `NF: ${d.originalNf}` : 'Não Informada'}</span> },
+    { header: 'Motivo', render: (d) => <span className="text-xs text-gray-600 truncate max-w-xs">{d.reason || 'Não Especificado'}</span> },
+    { 
+      header: 'Valor Estornado', 
+      align: 'right',
+      render: (d) => <span className="font-mono font-bold text-amber-700">{(d.value || d.totalValue || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</span> 
+    }
+  ];
+
+  // Auxiliar dinâmico para decidir qual coluna e array de dados usar no Modal de Preview
+  const getPreviewConfig = () => {
+    if (!selectedBatchDetails) return { columns: [], data: [] };
+    
+    switch (previewOrigin) {
+      case 'payment':
+        return { columns: paymentsPreviewColumns, data: selectedBatchDetails.payments || [] };
+      case 'devolution':
+        return { columns: devolutionsPreviewColumns, data: selectedBatchDetails.devolutions || selectedBatchDetails.items || [] };
+      case 'sale':
+      default:
+        return { columns: salesPreviewColumns, data: selectedBatchDetails.sales || [] };
+    }
+  };
+
+  const previewConfig = getPreviewConfig();
+
+  // Texto amigável do título do modal baseado no tipo de origem
+  const getModalTitle = () => {
+    switch (previewOrigin) {
+      case 'payment': return 'Repasses de Cartão/Marketplace';
+      case 'devolution': return 'Devoluções e Estornos';
+      case 'sale': return 'Notas Fiscais de Venda';
+    }
+  };
 
   return (
     <div className="space-y-8 animate-in fade-in duration-200 text-slate-950 relative">
@@ -350,7 +402,7 @@ export default function Lotes() {
 
       <header className="border-b border-gray-200 pb-5">
         <h1 className="text-2xl font-bold tracking-tight text-gray-900">Lotes Importados</h1>
-        <p className="text-sm text-gray-500">Audite de forma centralizada os históricos unificados de arquivos de Vendas e Repasses Financeiros.</p>
+        <p className="text-sm text-gray-500">Audite de forma centralizada os históricos unificados de arquivos de Vendas, Repasses Financeiros e Devoluções.</p>
       </header>
 
       {error && (
@@ -442,7 +494,7 @@ export default function Lotes() {
       <Modal
         isOpen={isPreviewOpen}
         onClose={() => { setIsPreviewOpen(false); setSelectedBatchDetails(null); }}
-        title={`Detalhamento do Lote: ${previewOrigin === 'payment' ? 'Repasses de Cartão/Marketplace' : 'Notas Fiscais de Venda'}`}
+        title={`Detalhamento do Lote: ${getModalTitle()}`}
         footer={
           <button 
             onClick={() => { setIsPreviewOpen(false); setSelectedBatchDetails(null); }}
@@ -480,8 +532,8 @@ export default function Lotes() {
               </h3>
               <div className="max-h-[350px] overflow-y-auto border border-gray-100 rounded-xl">
                 <Table
-                  columns={previewOrigin === 'payment' ? paymentsPreviewColumns : salesPreviewColumns}
-                  data={previewOrigin === 'payment' ? (selectedBatchDetails.payments || []) : (selectedBatchDetails.sales || [])}
+                  columns={previewConfig.columns}
+                  data={previewConfig.data}
                 />
               </div>
             </div>

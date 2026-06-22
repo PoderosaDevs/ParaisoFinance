@@ -5,7 +5,7 @@ import { getRequestHeaders } from '../api-routes/headers'; // Helper unificado i
 export interface Batch {
     id: string;
     name: string;
-    type: 'SALES' | 'PAYMENTS'; // Identifica o tipo do lote vindo do back-end
+    type: 'SALES' | 'PAYMENTS' | 'DEVOLUTIONS'; // Identifica o tipo do lote vindo do back-end
     salesCount: number;         // Quantidade de registros dentro do lote
     totalBaseIcms: number;      // Soma financeira calculada pelo back-end
     createdAt: string;
