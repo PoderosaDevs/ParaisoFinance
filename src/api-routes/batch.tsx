@@ -25,6 +25,16 @@ export interface ListBatchesResponse {
     meta: PaginationMeta;
 }
 
+// Filtros de busca aceitos pelo endpoint de listagem de lotes
+export interface BatchListFilters {
+    search?: string;
+    type?: 'SALES' | 'PAYMENTS' | 'DEVOLUTIONS';
+    dateFrom?: string; // 'YYYY-MM-DD'
+    dateTo?: string;   // 'YYYY-MM-DD'
+    valueMin?: number;
+    valueMax?: number;
+}
+
 // ─── API CLIENT INTERNO ───
 const API_BASE_URL = (import.meta as any).env.VITE_API_URL || 'http://localhost:3000';
 
@@ -38,11 +48,27 @@ async function handleResponse<T>(response: Response): Promise<T> {
 
 export const batchService = {
     /**
-     * Lista todos os lotes de forma unificada com paginação opcional
-     * GET /batches?page=1&limit=10
+     * Lista todos os lotes de forma unificada com paginação e filtros opcionais
+     * GET /batches?page=1&limit=10&search=&type=&dateFrom=&dateTo=&valueMin=&valueMax=
      */
-    list: async (page: number = 1, limit: number = 10): Promise<ListBatchesResponse> => {
-        const res = await fetch(`${API_BASE_URL}/batches?page=${page}&limit=${limit}`, {
+    list: async (
+        page: number = 1,
+        limit: number = 10,
+        filters?: BatchListFilters
+    ): Promise<ListBatchesResponse> => {
+        const params = new URLSearchParams({
+            page: String(page),
+            limit: String(limit),
+        });
+
+        if (filters?.search?.trim()) params.set('search', filters.search.trim());
+        if (filters?.type) params.set('type', filters.type);
+        if (filters?.dateFrom) params.set('dateFrom', filters.dateFrom);
+        if (filters?.dateTo) params.set('dateTo', filters.dateTo);
+        if (filters?.valueMin !== undefined) params.set('valueMin', String(filters.valueMin));
+        if (filters?.valueMax !== undefined) params.set('valueMax', String(filters.valueMax));
+
+        const res = await fetch(`${API_BASE_URL}/batches?${params.toString()}`, {
             method: 'GET',
             headers: getRequestHeaders(), // Substituído pelo helper unificado global
         });

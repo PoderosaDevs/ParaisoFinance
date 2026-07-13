@@ -11,6 +11,7 @@ import { FinanceiroPagination } from '../components/Financeiro/FinanceiroPaginat
 
 import { ImportVendasModal } from '../components/Modals/ImportVendasModal.tsx';
 import { ImportPaymentsModal } from '../components/Modals/ImportPagamentosModal.tsx';
+import { ExportVendasModal } from '../components/Modals/ExportVendasModal.tsx';
 
 import { ModalType } from '../types/financeiro';
 import { Marketplace, marketplaceService } from '../api-routes/marketplace';
@@ -381,6 +382,10 @@ export default function Financeiro() {
       <ImportPaymentsModal isOpen={activeModal === 'import_pagamento'} onClose={closeModals} onFinish={handleImportPagamentosFinish} />
       <ImportDevolutionsModal isOpen={activeModal === 'import_devolucao'} onClose={closeModals} onFinish={handleImportDevolucaoFinish} />
 
+      <ExportVendasModal
+        isOpen={activeModal === 'export_vendas'}
+        onClose={closeModals}
+      />
 
       <Modal
         isOpen={activeModal !== null && activeModal !== 'import_venda' && activeModal !== 'import_pagamento' && activeModal !== 'import_devolucao' && activeModal !== 'export_vendas'}
@@ -400,33 +405,6 @@ export default function Financeiro() {
             <span className="text-xs font-semibold text-gray-600">Arraste ou selecione a planilha de auditoria</span>
           </div>
           <p className="text-[10px] text-gray-400 font-mono text-center">Extensões: .csv ou .xlsx (Capacidade máxima: 10MB)</p>
-        </div>
-      </Modal>
-
-      <Modal
-        isOpen={activeModal === 'export_vendas'}
-        onClose={closeModals}
-        title="Configurar Exportação de Dados"
-        footer={<button className="bg-gray-900 text-white px-5 py-2 text-xs font-bold hover:bg-gray-800 cursor-pointer shadow-sm">Gerar Arquivo</button>}
-      >
-        <div className="space-y-4">
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">Período de:</label>
-              <input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} className="w-full border border-gray-200 px-3 py-1.5 text-xs font-mono outline-none focus:border-gray-400 bg-gray-50/50" />
-            </div>
-            <div>
-              <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">Até:</label>
-              <input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} className="w-full border border-gray-200 px-3 py-1.5 text-xs font-mono outline-none focus:border-gray-400 bg-gray-50/50" />
-            </div>
-          </div>
-          <div>
-            <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">Formato de Saída</label>
-            <select className="w-full border border-gray-200 px-3 py-1.5 text-xs bg-gray-50/50 outline-none focus:border-gray-400 text-gray-700">
-              <option>Layout de Auditoria Direta (.csv)</option>
-              <option>Planilha Consolidada (.xlsx)</option>
-            </select>
-          </div>
         </div>
       </Modal>
     </div>

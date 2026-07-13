@@ -2,14 +2,15 @@ import { useState, useEffect } from 'react';
 import { 
   Layers, Loader2, AlertTriangle, RefreshCw, Eye, Trash2, 
   Layers3, ShoppingBag, CreditCard, X, CheckCircle2, Info, Pencil, Check,
-  ArrowLeftRight // Novo ícone para devoluções
+  ArrowLeftRight, // Novo ícone para devoluções
+  Search, CalendarRange, SlidersHorizontal, XCircle, ListFilter
 } from 'lucide-react';
 
 import Table, { Column } from '../components/Table';
 import Modal from '../components/Modal';
 
 // Consome o serviço unificado criado nos passos anteriores
-import { batchService, Batch as ApiBatch } from '../api-routes/batch';
+import { batchService, Batch as ApiBatch, BatchListFilters } from '../api-routes/batch';
 
 interface UnifiedBatch {
   id: string;
@@ -35,6 +36,16 @@ interface ConfirmModalState {
   originType: 'sale' | 'payment' | 'devolution';
 }
 
+type TypeFilterOption = 'all' | 'sale' | 'payment' | 'devolution';
+
+// Mapeia o filtro amigável do front para o valor de "type" esperado pela API
+const TYPE_FILTER_TO_API: Record<TypeFilterOption, BatchListFilters['type']> = {
+  all: undefined,
+  sale: 'SALES',
+  payment: 'PAYMENTS',
+  devolution: 'DEVOLUTIONS'
+};
+
 export default function Lotes() {
   // ─── ESTADOS DE INFRAESTRUTURA ───
   const [unifiedBatches, setUnifiedBatches] = useState<UnifiedBatch[]>([]);
@@ -49,6 +60,19 @@ export default function Lotes() {
   const [editingBatchId, setEditingBatchId] = useState<string | null>(null);
   const [editingNameValue, setEditingNameValue] = useState<string>('');
   const [renamingLoading, setRenamingLoading] = useState<boolean>(false);
+
+  // ─── ESTADOS DOS FILTROS DE BUSCA DO LOTE (valores "crus", controlam os inputs) ───
+  const [searchText, setSearchText] = useState<string>('');
+  const [typeFilter, setTypeFilter] = useState<TypeFilterOption>('all');
+  const [dateFrom, setDateFrom] = useState<string>('');
+  const [dateTo, setDateTo] = useState<string>('');
+  const [valueMin, setValueMin] = useState<string>('');
+  const [valueMax, setValueMax] = useState<string>('');
+
+  // ─── VERSÕES "DEBOUNCED" (usadas de fato na chamada à API, evitam 1 request por tecla) ───
+  const [debouncedSearch, setDebouncedSearch] = useState<string>('');
+  const [debouncedValueMin, setDebouncedValueMin] = useState<string>('');
+  const [debouncedValueMax, setDebouncedValueMax] = useState<string>('');
 
   // ─── ESTADOS DE ALERTAS CUSTOMIZADOS ───
   const [alert, setAlert] = useState<AlertState>({
@@ -79,12 +103,29 @@ export default function Lotes() {
     }
   };
 
-  // ─── CARREGAMENTO INTEGRADO E UNIFICADO ATRAVÉS DO BATCH_SERVICE ───
+  // Converte uma string mascarada em formato de moeda BRL (ex: "R$ 1.234,56") para number
+  const parseCurrencyToNumber = (masked: string): number | undefined => {
+    if (!masked.trim()) return undefined;
+    const cleaned = masked.replace(/[^\d,-]/g, '').replace(',', '.');
+    const value = parseFloat(cleaned);
+    return isNaN(value) ? undefined : value;
+  };
+
+  // ─── CARREGAMENTO INTEGRADO E UNIFICADO ATRAVÉS DO BATCH_SERVICE (agora com filtros server-side) ───
   const loadAllBatches = async (currentPage: number = 1) => {
     setLoading(true);
     setError(null);
     try {
-      const response = await batchService.list(currentPage, 10);
+      const filters: BatchListFilters = {
+        search: debouncedSearch.trim() || undefined,
+        type: TYPE_FILTER_TO_API[typeFilter],
+        dateFrom: dateFrom || undefined,
+        dateTo: dateTo || undefined,
+        valueMin: parseCurrencyToNumber(debouncedValueMin),
+        valueMax: parseCurrencyToNumber(debouncedValueMax)
+      };
+
+      const response = await batchService.list(currentPage, 10, filters);
 
       const consolidated = (response.data || []).map((b: ApiBatch) => {
         // Tratativa dinâmica do tipo baseado no retorno da API
@@ -114,9 +155,79 @@ export default function Lotes() {
     }
   };
 
+  // Debounce da busca textual: só atualiza debouncedSearch (e reseta a página) 400ms após parar de digitar
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(searchText);
+      setPage(1);
+    }, 400);
+    return () => clearTimeout(timer);
+  }, [searchText]);
+
+  // Debounce da faixa de valores: mesma lógica, só dispara a busca depois que o usuário parar de digitar
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedValueMin(valueMin);
+      setDebouncedValueMax(valueMax);
+      setPage(1);
+    }, 400);
+    return () => clearTimeout(timer);
+  }, [valueMin, valueMax]);
+
+  // Dispara a busca sempre que a página ou algum filtro (já debounced) mudar
   useEffect(() => {
     loadAllBatches(page);
-  }, [page]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [page, debouncedSearch, typeFilter, dateFrom, dateTo, debouncedValueMin, debouncedValueMax]);
+
+  const hasActiveFilters = Boolean(
+    searchText.trim() || typeFilter !== 'all' || dateFrom || dateTo || valueMin.trim() || valueMax.trim()
+  );
+
+  const clearFilters = () => {
+    setSearchText('');
+    setTypeFilter('all');
+    setDateFrom('');
+    setDateTo('');
+    setValueMin('');
+    setValueMax('');
+    setDebouncedSearch('');
+    setDebouncedValueMin('');
+    setDebouncedValueMax('');
+    setPage(1);
+  };
+
+  // Filtro por tipo e por data já refletem na hora (sem debounce), então resetam a página imediatamente
+  const handleTypeFilterChange = (value: TypeFilterOption) => {
+    setTypeFilter(value);
+    setPage(1);
+  };
+
+  const handleDateFromChange = (value: string) => {
+    setDateFrom(value);
+    setPage(1);
+  };
+
+  const handleDateToChange = (value: string) => {
+    setDateTo(value);
+    setPage(1);
+  };
+
+  // Aplica máscara de moeda (BRL) enquanto o usuário digita nos campos de valor
+  const formatCurrencyInput = (rawValue: string): string => {
+    const digits = rawValue.replace(/\D/g, '');
+    if (!digits) return '';
+    const numeric = parseInt(digits, 10) / 100;
+    return numeric.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+  };
+
+  const handleValueMinChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setValueMin(formatCurrencyInput(e.target.value));
+  };
+
+  const handleValueMaxChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setValueMax(formatCurrencyInput(e.target.value));
+  };
 
   // ─── MANIPULAÇÃO DO PROCESSO DE RENOMEAR LOTE ───
   const startRename = (id: string, currentName: string) => {
@@ -404,6 +515,104 @@ export default function Lotes() {
         <h1 className="text-2xl font-bold tracking-tight text-gray-900">Lotes Importados</h1>
         <p className="text-sm text-gray-500">Audite de forma centralizada os históricos unificados de arquivos de Vendas, Repasses Financeiros e Devoluções.</p>
       </header>
+
+      {/* ─── BARRA DE FILTROS E AÇÃO DE ATUALIZAR (filtros aplicados via API) ─── */}
+      <div className="p-4 bg-white border border-gray-200 rounded-xl space-y-3">
+        <div className="flex items-center justify-between gap-2">
+          <h2 className="text-xs font-bold uppercase tracking-wider text-gray-500 flex items-center gap-1.5">
+            <SlidersHorizontal size={14} /> Filtros de Busca
+          </h2>
+          <div className="flex items-center gap-2">
+            {hasActiveFilters && (
+              <button
+                onClick={clearFilters}
+                className="flex items-center gap-1 px-2.5 py-1.5 text-xs font-bold text-gray-500 hover:text-gray-800 hover:bg-gray-50 rounded-lg cursor-pointer transition-colors"
+              >
+                <XCircle className="w-3.5 h-3.5" />
+                Limpar filtros
+              </button>
+            )}
+            <button
+              onClick={() => loadAllBatches(page)}
+              disabled={loading}
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-900 text-white text-xs font-bold rounded-lg hover:bg-slate-800 transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
+              Atualizar
+            </button>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
+          {/* Busca textual por nome/ID do lote (debounced) */}
+          <div className="relative lg:col-span-2">
+            <Search className="w-3.5 h-3.5 text-gray-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
+            <input
+              type="text"
+              value={searchText}
+              onChange={(e) => setSearchText(e.target.value)}
+              placeholder="Buscar por nome ou ID do lote..."
+              className="w-full pl-8 pr-3 py-2 text-xs border border-gray-200 rounded-lg focus:outline-none focus:border-slate-400 text-gray-900 bg-white"
+            />
+          </div>
+
+          {/* Filtro por tipo de lote */}
+          <div className="relative">
+            <ListFilter className="w-3.5 h-3.5 text-gray-400 absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+            <select
+              value={typeFilter}
+              onChange={(e) => handleTypeFilterChange(e.target.value as TypeFilterOption)}
+              className="w-full pl-8 pr-3 py-2 text-xs border border-gray-200 rounded-lg focus:outline-none focus:border-slate-400 text-gray-900 bg-white appearance-none cursor-pointer"
+            >
+              <option value="all">Todos os tipos</option>
+              <option value="sale">Vendas</option>
+              <option value="payment">Pagamentos</option>
+              <option value="devolution">Devoluções</option>
+            </select>
+          </div>
+
+          {/* Filtro por intervalo de datas */}
+          <div className="flex items-center gap-1.5">
+            <CalendarRange className="w-3.5 h-3.5 text-gray-400 shrink-0 hidden sm:block" />
+            <input
+              type="date"
+              value={dateFrom}
+              onChange={(e) => handleDateFromChange(e.target.value)}
+              className="w-full px-2 py-2 text-xs border border-gray-200 rounded-lg focus:outline-none focus:border-slate-400 text-gray-700 bg-white"
+              title="Data inicial"
+            />
+            <span className="text-gray-300 text-xs">–</span>
+            <input
+              type="date"
+              value={dateTo}
+              onChange={(e) => handleDateToChange(e.target.value)}
+              className="w-full px-2 py-2 text-xs border border-gray-200 rounded-lg focus:outline-none focus:border-slate-400 text-gray-700 bg-white"
+              title="Data final"
+            />
+          </div>
+
+          {/* Filtro por faixa de valor total (com máscara de moeda, debounced) */}
+          <div className="flex items-center gap-1.5">
+            <input
+              type="text"
+              inputMode="numeric"
+              value={valueMin}
+              onChange={handleValueMinChange}
+              placeholder="R$ mín."
+              className="w-full px-2 py-2 text-xs border border-gray-200 rounded-lg focus:outline-none focus:border-slate-400 text-gray-700 bg-white"
+            />
+            <span className="text-gray-300 text-xs">–</span>
+            <input
+              type="text"
+              inputMode="numeric"
+              value={valueMax}
+              onChange={handleValueMaxChange}
+              placeholder="R$ máx."
+              className="w-full px-2 py-2 text-xs border border-gray-200 rounded-lg focus:outline-none focus:border-slate-400 text-gray-700 bg-white"
+            />
+          </div>
+        </div>
+      </div>
 
       {error && (
         <div className="p-4 bg-amber-50 border border-amber-200 flex items-start gap-3 text-amber-900 rounded-xl">
