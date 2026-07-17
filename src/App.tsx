@@ -13,7 +13,7 @@ import Financeiro from './pages/Financeiro';
 import Marketplaces from './pages/Marketplaces';
 import Lojas from './pages/Lojas';
 import Lotes from './pages/Lotes';
-
+import Fretes from './pages/Fretes';
 
 // Página de Erro
 import NotFound from './pages/NotFound';
@@ -39,6 +39,7 @@ export default function App() {
             <Route path="/marketplaces" element={<Marketplaces />} />
             <Route path="/lojas" element={<Lojas />} />
             <Route path="/lotes" element={<Lotes />} />
+            <Route path="/fretes" element={<Fretes />} />
           </Route>
 
           {/* Rota de captura para caminhos inexistentes (404) */}

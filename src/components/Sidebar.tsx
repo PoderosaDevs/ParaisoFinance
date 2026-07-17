@@ -1,6 +1,6 @@
 // src/components/Sidebar.tsx
 import { NavLink } from 'react-router-dom';
-import { LayoutDashboard, Landmark, Store, ShoppingBag, LogOut, Package2 } from 'lucide-react';
+import { LayoutDashboard, Landmark, Store, ShoppingBag, LogOut, Package2, Truck, Cloud } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext'; // Garanta que o caminho do seu contexto está correto
 
 export default function Sidebar() {
@@ -12,6 +12,8 @@ export default function Sidebar() {
     { icon: <ShoppingBag size={20}/>, label: 'Marketplaces', path: '/marketplaces' },
     { icon: <Store size={20}/>, label: 'Lojas', path: '/lojas' },
     { icon: <Package2 size={20}/>, label: 'Lotes', path: '/lotes' },
+    { icon: <Truck size={20}/>, label: 'Fretes', path: '/fretes' },
+
   ];
 
   // ─── FUNÇÃO DE LOGOUT CONECTADA AO AUTH ───
@@ -23,8 +25,8 @@ export default function Sidebar() {
   return (
     <aside className="w-64 bg-brand-green h-screen sticky top-0 text-white flex flex-col p-6">
       <div className="flex items-center gap-3 mb-10">
-        <div className="bg-white/10 p-2 rounded-lg">🍃</div>
-        <h1 className="text-xl font-bold tracking-tight text-white">GreenFinance</h1>
+        <div className="bg-white/10 p-2 rounded-lg"><Cloud /></div>
+        <h1 className="text-xl font-bold tracking-tight text-white">ParaisoFinaceiro</h1>
       </div>
 
       <nav className="flex-grow space-y-2">

@@ -27,16 +27,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const [isExpired, setIsExpired] = useState(false);
 
     useEffect(() => {
-        const savedToken = localStorage.getItem('@GreenFinance:token');
-        const savedUser = localStorage.getItem('@GreenFinance:user');
+        const savedToken = localStorage.getItem('@ParaisoFinaceiro:token');
+        const savedUser = localStorage.getItem('@ParaisoFinaceiro:user');
 
         if (savedToken && savedUser && savedUser !== 'undefined') {
             try {
                 setToken(savedToken);
                 setUser(JSON.parse(savedUser));
             } catch (e) {
-                localStorage.removeItem('@GreenFinance:token');
-                localStorage.removeItem('@GreenFinance:user');
+                localStorage.removeItem('@ParaisoFinaceiro:token');
+                localStorage.removeItem('@ParaisoFinaceiro:user');
             }
         }
         setLoading(false);
@@ -57,12 +57,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             setUser(userToSave || null);
             setToken(tokenToSave);
 
-            localStorage.setItem('@GreenFinance:token', tokenToSave);
+            localStorage.setItem('@ParaisoFinaceiro:token', tokenToSave);
 
             if (userToSave) {
-                localStorage.setItem('@GreenFinance:user', JSON.stringify(userToSave));
+                localStorage.setItem('@ParaisoFinaceiro:user', JSON.stringify(userToSave));
             } else {
-                localStorage.setItem('@GreenFinance:user', JSON.stringify({ id: '1', name: 'Usuário', email }));
+                localStorage.setItem('@ParaisoFinaceiro:user', JSON.stringify({ id: '1', name: 'Usuário', email }));
             }
 
         } catch (error) {
@@ -74,8 +74,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const logout = () => {
         setUser(null);
         setToken(null);
-        localStorage.removeItem('@GreenFinance:token');
-        localStorage.removeItem('@GreenFinance:user');
+        localStorage.removeItem('@ParaisoFinaceiro:token');
+        localStorage.removeItem('@ParaisoFinaceiro:user');
     };
 
     // ─── GATILHO AUTOMÁTICO DE SESSÃO EXPIRADA ───

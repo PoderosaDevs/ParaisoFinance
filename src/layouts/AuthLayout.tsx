@@ -21,7 +21,7 @@ export default function AuthLayout() {
           <div className="w-9 h-9 bg-brand-green rounded-xl flex items-center justify-center text-white font-bold shadow-md shadow-brand-green/20">
             🍃
           </div>
-          <span className="text-lg font-bold tracking-tight text-gray-900">GreenFinance</span>
+          <span className="text-lg font-bold tracking-tight text-gray-900">ParaisoFinaceiro</span>
         </div>
 
         {/* Container Centralizado para as Páginas (Login/Registro) */}
@@ -31,7 +31,7 @@ export default function AuthLayout() {
 
         {/* Rodapé do Painel de Autenticação */}
         <div className="text-xs text-gray-400 flex justify-between items-center border-t border-gray-100 pt-6">
-          <p>© 2026 GreenFinance Inc.</p>
+          <p>© 2026 ParaisoFinaceiro Inc.</p>
           <div className="flex gap-4">
             <a href="#" className="hover:text-gray-600 transition-colors">Termos</a>
             <a href="#" className="hover:text-gray-600 transition-colors">Privacidade</a>
@@ -84,7 +84,7 @@ export default function AuthLayout() {
         {/* Citação / Prova Social Inferior */}
         <div className="border-t border-white/10 pt-8 z-10">
           <blockquote className="text-sm italic text-emerald-100/80 leading-relaxed">
-            "A GreenFinance mudou completamente a velocidade com que nossa startup analisa a queima de caixa mensal. O layout limpo elimina o ruído."
+            "A ParaisoFinaceiro mudou completamente a velocidade com que nossa startup analisa a queima de caixa mensal. O layout limpo elimina o ruído."
           </blockquote>
           <div className="mt-4 flex items-center gap-3">
             <div className="w-8 h-8 rounded-full bg-emerald-800 border border-white/20 flex items-center justify-center font-bold text-xs text-emerald-200">
