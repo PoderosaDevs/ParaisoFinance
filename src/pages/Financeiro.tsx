@@ -16,8 +16,9 @@ import { ExportVendasModal } from '../components/Modals/ExportVendasModal.tsx';
 import { ModalType } from '../types/financeiro';
 import { Marketplace, marketplaceService } from '../api-routes/marketplace';
 import { Sale, saleService, SalesSummaryResponse } from '../api-routes/sale';
-import { storeService } from '../api-routes/store';
+import { Store, storeService } from '../api-routes/store';
 import { ImportDevolutionsModal } from '../components/Modals/ImportDevolucaoModal.tsx';
+import { VisibilityToggle } from '../components/VisibilityToggle';
 
 export default function Financeiro() {
   const [search, setSearch] = useState("");
@@ -38,8 +39,12 @@ export default function Financeiro() {
   const [modalImportTitle, setModalImportTitle] = useState("Importação de Arquivo");
 
   const [marketplaces, setMarketplaces] = useState<Marketplace[]>([]);
-  const [stores, setStores] = useState<string[]>([]);
+  const [stores, setStores] = useState<Store[]>([]);
   const [sales, setSales] = useState<Sale[]>([]);
+
+  const [isLoadingTable, setIsLoadingTable] = useState(true);
+  const [isLoadingSummary, setIsLoadingSummary] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   const [summaryData, setSummaryData] = useState<SalesSummaryResponse>({
     vendasPeriodo: 0,
@@ -53,11 +58,21 @@ export default function Financeiro() {
   // Flag para evitar a primeira busca fantasma enquanto as datas padrão não carregam
   const isInitialMount = useRef(true);
 
+  // Guarda o AbortController da requisição em andamento para poder cancelá-la caso uma
+  // nova busca comece antes dela terminar (evita requisições obsoletas se acumulando —
+  // comum em dev com o React StrictMode, mas também acontece ao trocar filtros rápido).
+  const abortControllerRef = useRef<AbortController | null>(null);
+
   // 1. Debounce para o campo de texto (Evita travar a digitação)
   useEffect(() => {
     const handler = setTimeout(() => setDebouncedSearch(search), 350);
     return () => clearTimeout(handler);
   }, [search]);
+
+  // Cancela qualquer requisição pendente quando o componente desmonta de verdade
+  useEffect(() => {
+    return () => abortControllerRef.current?.abort();
+  }, []);
 
   // 2. Carga inicial de Metadados (Marketplaces e Lojas)
   useEffect(() => {
@@ -68,9 +83,7 @@ export default function Financeiro() {
           storeService.list()
         ]);
         setMarketplaces(marketplacesData || []);
-        if (storesData) {
-          setStores(storesData.map((store: any) => store.id || store.name || store));
-        }
+        setStores(storesData || []);
       } catch (err) {
         console.error("Erro ao carregar metadados:", err);
       }
@@ -80,6 +93,14 @@ export default function Financeiro() {
 
   // 3. Função Única de carregamento do Dashboard (Modificada)
   const loadDashboardData = async () => {
+    // Cancela qualquer requisição anterior ainda em andamento antes de iniciar uma nova
+    abortControllerRef.current?.abort();
+    const controller = new AbortController();
+    abortControllerRef.current = controller;
+
+    setIsLoadingTable(true);
+    setIsLoadingSummary(true);
+    setLoadError(null);
     try {
       const hasSearch = debouncedSearch.trim() !== "";
 
@@ -98,7 +119,7 @@ export default function Financeiro() {
       // 2. Execução Condicional
       if (hasSearch) {
         // Se o usuário está buscando algo, fazemos APENAS a requisição da tabela
-        const salesResponse = await saleService.list(apiFilters);
+        const salesResponse = await saleService.list(apiFilters, controller.signal);
 
         setSales(salesResponse.data || []);
         setTotalItems(salesResponse.totalItems || 0);
@@ -115,22 +136,29 @@ export default function Financeiro() {
       } else {
         // Se NÃO há busca por texto, o comportamento volta ao normal (tabela + sumário integrados)
         const [salesResponse, summaryResponse] = await Promise.all([
-          saleService.list(apiFilters),
+          saleService.list(apiFilters, controller.signal),
           saleService.summary({
             marketplaceId: apiFilters.marketplaceId,
             storeId: apiFilters.storeId,
             startDate: apiFilters.startDate,
             endDate: apiFilters.endDate,
             status: apiFilters.status,
-          }),
+          }, controller.signal),
         ]);
 
         setSales(salesResponse.data || []);
         setTotalItems(salesResponse.totalItems || 0);
         setSummaryData(summaryResponse);
       }
-    } catch (err) {
+    } catch (err: any) {
+      if (err?.name === 'AbortError') return; // cancelada de propósito por uma busca mais nova, ignora
       console.error("Erro ao sincronizar dados do painel:", err);
+      setLoadError(err?.message || "Não foi possível carregar os dados de vendas. Tente novamente.");
+    } finally {
+      if (!controller.signal.aborted) {
+        setIsLoadingTable(false);
+        setIsLoadingSummary(false);
+      }
     }
   };
 
@@ -140,8 +168,14 @@ export default function Financeiro() {
     // nós seguramos o disparo aqui até que as datas estejam devidamente preenchidas se necessário.
     if (isInitialMount.current) {
       isInitialMount.current = false;
-      // Se possui datas padrão vindo do picker, aguarda o próximo ciclo para não duplicar
-      if (!startDate && !endDate) {
+      // Correção de bug: o DateRangePicker preenche startDate/endDate com o mês vigente
+      // logo no primeiro render (efeito do componente filho, que roda antes deste). Se
+      // disparássemos a busca aqui enquanto as datas ainda estão vazias, faríamos uma
+      // consulta SEM filtro de período (varrendo a base inteira) que seria descartada
+      // segundos depois quando o picker preenchesse as datas reais — daí os disparos
+      // duplicados e a lentidão. Agora só buscamos aqui se as datas já chegaram prontas;
+      // caso contrário, o efeito abaixo dispara sozinho assim que elas forem definidas.
+      if (startDate && endDate) {
         loadDashboardData();
       }
       return;
@@ -341,6 +375,12 @@ export default function Financeiro() {
     <div className="space-y-6 animate-in fade-in duration-200 text-slate-950">
       <FinanceiroHeader setActiveModal={setActiveModal} openImportModal={openImportModal} />
 
+      {loadError && (
+        <div className="p-3 bg-red-50 border border-red-200 text-red-800 text-xs flex items-start gap-2">
+          <span>{loadError}</span>
+        </div>
+      )}
+
       <FinanceiroFilters
         search={search}
         setSearch={setSearch}
@@ -360,7 +400,7 @@ export default function Financeiro() {
         hasActiveFilters={hasActiveFilters}
       />
 
-      <FinanceiroSummary stats={stats} />
+      <FinanceiroSummary stats={stats} loading={isLoadingSummary} />
 
       <div className="bg-white border border-gray-200 shadow-sm p-1">
         <div className="p-4 border-b border-gray-100 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
@@ -373,7 +413,7 @@ export default function Financeiro() {
           </div>
         </div>
 
-        <Table columns={columns} data={sales} />
+        <Table columns={columns} data={sales} loading={isLoadingTable} />
 
         <FinanceiroPagination page={page} setPage={setPage} totalItems={totalItems} itemsPerPage={ITEMS_PER_PAGE} />
       </div>

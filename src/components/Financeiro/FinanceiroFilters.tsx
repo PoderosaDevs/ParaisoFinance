@@ -1,6 +1,7 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Search, Filter, ChevronDown, Check, X } from 'lucide-react';
 import { Marketplace, STATUS_OPTIONS } from '../../types/financeiro';
+import { Store } from '../../api-routes/store';
 import { DateRangePicker } from './DateRangePicker';
 
 interface FinanceiroFiltersProps {
@@ -10,7 +11,8 @@ interface FinanceiroFiltersProps {
   setMarketplaceFilter: (val: string) => void;
   storeFilter: string;
   setStoreFilter: (val: string) => void;
-  stores: string[];
+  /** Lista completa de lojas — o componente filtra sozinho pelo marketplace selecionado */
+  stores: Store[];
   statusFilter: string[];
   setStatusFilter: React.Dispatch<React.SetStateAction<string[]>>;
   startDate: string;
@@ -35,6 +37,22 @@ export function FinanceiroFilters({
   hasActiveFilters
 }: FinanceiroFiltersProps) {
   const [isStatusOpen, setIsStatusOpen] = useState(false);
+
+  // Harmonia entre filtros: a lista de lojas exibida reflete o marketplace selecionado.
+  // Isso evita que o usuário escolha uma combinação impossível (loja de um canal + marketplace de outro).
+  const availableStores = useMemo(() => {
+    if (marketplaceFilter === 'all') return stores;
+    return stores.filter((s) => s.marketplaceId === marketplaceFilter);
+  }, [stores, marketplaceFilter]);
+
+  const handleMarketplaceChange = (value: string) => {
+    setMarketplaceFilter(value);
+    // Se a loja atualmente selecionada não pertence ao novo marketplace, reseta para "Todas as Lojas"
+    if (value !== 'all' && storeFilter !== 'all') {
+      const stillValid = stores.some((s) => s.id === storeFilter && s.marketplaceId === value);
+      if (!stillValid) setStoreFilter('all');
+    }
+  };
 
   // Corrigido para formatar a string de data completa (Ex: 2026-06-01 vira 01/06/2026)
   const formatDateDisplay = (dateString: string) => {
@@ -113,7 +131,7 @@ export function FinanceiroFilters({
       <div className="w-full lg:w-[160px]">
         <select
           value={marketplaceFilter}
-          onChange={(e) => setMarketplaceFilter(e.target.value)}
+          onChange={(e) => handleMarketplaceChange(e.target.value)}
           className="w-full h-9 border border-gray-200 bg-gray-50/50 text-xs font-semibold text-gray-700 px-2 outline-none focus:border-gray-400 cursor-pointer"
         >
           <option value="all">Todos Canais</option>
@@ -127,12 +145,14 @@ export function FinanceiroFilters({
         <select
           value={storeFilter}
           onChange={(e) => setStoreFilter(e.target.value)}
-          className="w-full h-9 border border-gray-200 bg-gray-50/50 text-xs font-semibold text-gray-700 px-2 outline-none focus:border-gray-400 cursor-pointer"
+          disabled={availableStores.length === 0}
+          title={availableStores.length === 0 ? 'Nenhuma loja para o canal selecionado' : undefined}
+          className="w-full h-9 border border-gray-200 bg-gray-50/50 text-xs font-semibold text-gray-700 px-2 outline-none focus:border-gray-400 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          <option value="all">Todas as Lojas</option>
-          {stores.map((storeName) => (
-            <option key={storeName} value={storeName}>
-              {storeName}
+          <option value="all">Todas as Lojas {marketplaceFilter !== 'all' ? `(${availableStores.length})` : ''}</option>
+          {availableStores.map((store) => (
+            <option key={store.id} value={store.id}>
+              {store.name || store.id}
             </option>
           ))}
         </select>

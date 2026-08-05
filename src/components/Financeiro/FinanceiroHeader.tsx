@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { ChevronDown, FileDown, ShoppingCart, CreditCard, Undo2, RefreshCcw } from 'lucide-react';
 import { ModalType } from '../../types/financeiro';
+import { VisibilityToggle } from '../VisibilityToggle';
 
 interface FinanceiroHeaderProps {
   setActiveModal: (type: ModalType) => void;
@@ -16,6 +17,8 @@ export function FinanceiroHeader({ setActiveModal, openImportModal }: Financeiro
         <h1 className="text-2xl font-bold tracking-tight text-gray-900">Gerenciamento de Vendas</h1>
       </div>
 
+      <div className="flex items-center gap-2">
+      <VisibilityToggle />
       <div className="relative">
         <button
           onClick={() => setIsActionsOpen(!isActionsOpen)}
@@ -53,6 +56,7 @@ export function FinanceiroHeader({ setActiveModal, openImportModal }: Financeiro
             </div>
           </>
         )}
+      </div>
       </div>
     </div>
   );

@@ -118,9 +118,9 @@ export const saleService = {
   },
 
   // GET /sales
-  list: async (filters: SaleFilters = {}): Promise<PaginatedSalesResponse> => {
+  list: async (filters: SaleFilters = {}, signal?: AbortSignal): Promise<PaginatedSalesResponse> => {
     const searchParams = new URLSearchParams();
-    
+
     Object.entries(filters).forEach(([key, value]) => {
       if (value !== undefined && value !== null && value !== '') {
         searchParams.append(key, String(value));
@@ -133,14 +133,15 @@ export const saleService = {
     const res = await fetch(url, {
       method: 'GET',
       headers: getRequestHeaders(), // Helper unificado injetado
+      signal,
     });
     return handleResponse<PaginatedSalesResponse>(res);
   },
 
   // GET /sales/summary
-  summary: async (filters: Omit<SaleFilters, 'page' | 'limit' | 'search'> = {}): Promise<SalesSummaryResponse> => {
+  summary: async (filters: Omit<SaleFilters, 'page' | 'limit' | 'search'> = {}, signal?: AbortSignal): Promise<SalesSummaryResponse> => {
     const searchParams = new URLSearchParams();
-    
+
     Object.entries(filters).forEach(([key, value]) => {
       if (value !== undefined && value !== null && value !== '') {
         searchParams.append(key, String(value));
@@ -153,6 +154,7 @@ export const saleService = {
     const res = await fetch(url, {
       method: 'GET',
       headers: getRequestHeaders(), // Helper unificado injetado
+      signal,
     });
     return handleResponse<SalesSummaryResponse>(res);
   },

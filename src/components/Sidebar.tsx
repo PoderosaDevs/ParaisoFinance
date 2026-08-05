@@ -1,6 +1,6 @@
 // src/components/Sidebar.tsx
 import { NavLink } from 'react-router-dom';
-import { LayoutDashboard, Landmark, Store, ShoppingBag, LogOut, Package2, Truck, Cloud } from 'lucide-react';
+import { LayoutDashboard, Landmark, Store, ShoppingBag, LogOut, Package2, Truck, Cloud, SquarePercent, FileBarChart2 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext'; // Garanta que o caminho do seu contexto está correto
 
 export default function Sidebar() {
@@ -13,7 +13,8 @@ export default function Sidebar() {
     { icon: <Store size={20}/>, label: 'Lojas', path: '/lojas' },
     { icon: <Package2 size={20}/>, label: 'Lotes', path: '/lotes' },
     { icon: <Truck size={20}/>, label: 'Fretes', path: '/fretes' },
-
+    { icon: <SquarePercent size={20}/>, label: 'Difal', path: '/difal' },
+    { icon: <FileBarChart2 size={20}/>, label: 'Apresentação & Relatórios', path: '/relatorios' },
   ];
 
   // ─── FUNÇÃO DE LOGOUT CONECTADA AO AUTH ───

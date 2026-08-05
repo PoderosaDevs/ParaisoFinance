@@ -1,10 +1,10 @@
 // src/components/Modals/ExportVendasModal.tsx
-import { useState, useEffect } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { X, Loader2, AlertTriangle, CheckCircle2, CalendarRange, FileSpreadsheet, FileText, Printer } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { Marketplace } from '../../types/financeiro';
 import { marketplaceService } from '../../api-routes/marketplace';
-import { storeService } from '../../api-routes/store';
+import { Store, storeService } from '../../api-routes/store';
 import { exportSalesService, ExportSaleRow, ExportSalesFilters } from '../../api-routes/exportSales';
 
 interface ExportVendasModalProps {
@@ -20,7 +20,7 @@ const STATUS_OPTIONS = ['LIQUIDADO', 'PARCIAL', 'PENDENTE'];
 export function ExportVendasModal({ isOpen, onClose }: ExportVendasModalProps) {
   // ─── ESTADOS DE METADADOS (Lojas e Marketplaces, buscados pelo próprio modal ao abrir) ───
   const [marketplaces, setMarketplaces] = useState<Marketplace[]>([]);
-  const [stores, setStores] = useState<string[]>([]);
+  const [stores, setStores] = useState<Store[]>([]);
   const [isLoadingMeta, setIsLoadingMeta] = useState(false);
   const [errorMeta, setErrorMeta] = useState<string | null>(null);
 
@@ -53,7 +53,7 @@ export function ExportVendasModal({ isOpen, onClose }: ExportVendasModalProps) {
           storeService.list()
         ]);
         setMarketplaces(marketplacesData || []);
-        setStores((storesData || []).map((store: any) => store.id || store.name || store));
+        setStores(storesData || []);
       } catch (err) {
         console.error('Erro ao carregar lojas/marketplaces para exportação:', err);
         setErrorMeta('Não foi possível carregar as lojas e marketplaces cadastrados.');
@@ -64,6 +64,21 @@ export function ExportVendasModal({ isOpen, onClose }: ExportVendasModalProps) {
 
     loadMeta();
   }, [isOpen]);
+
+  // Harmonia: a lista de lojas exibida reflete o marketplace escolhido (mesma regra do Financeiro.tsx)
+  const availableStores = useMemo(() => {
+    if (marketplaceFilter === 'all') return stores;
+    return stores.filter((s) => s.marketplaceId === marketplaceFilter);
+  }, [stores, marketplaceFilter]);
+
+  const handleMarketplaceChange = (value: string) => {
+    setExportSuccess(null);
+    setMarketplaceFilter(value);
+    if (value !== 'all' && storeFilter !== 'all') {
+      const stillValid = stores.some((s) => s.id === storeFilter && s.marketplaceId === value);
+      if (!stillValid) setStoreFilter('all');
+    }
+  };
 
   const toggleStatus = (status: string) => {
     setExportSuccess(null);
@@ -96,13 +111,23 @@ export function ExportVendasModal({ isOpen, onClose }: ExportVendasModalProps) {
     return { startDate: toIso(firstDay), endDate: toIso(lastDay) };
   };
 
+  // ─── CSV NO PADRÃO BRASILEIRO ───
+  // Bug corrigido: o Excel em pt-BR usa ";" como separador de colunas e "," como separador
+  // decimal (porque "," já é o separador decimal). O arquivo antigo usava "," para tudo,
+  // então o Excel abria os números fatiados em colunas erradas. Agora: delimitador ";" e
+  // valores numéricos formatados com vírgula decimal, igual ao restante do sistema.
+  const CSV_DELIMITER = ';';
+
   const escapeCsvValue = (value: any): string => {
     const str = String(value ?? '');
-    if (str.includes(',') || str.includes('"') || str.includes('\n')) {
+    if (str.includes(CSV_DELIMITER) || str.includes('"') || str.includes('\n')) {
       return `"${str.replace(/"/g, '""')}"`;
     }
     return str;
   };
+
+  const formatCsvNumber = (value: number): string =>
+    value.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
   const generateCsvContent = (rows: ExportSaleRow[]): string => {
     const headers = [
@@ -110,7 +135,7 @@ export function ExportVendasModal({ isOpen, onClose }: ExportVendasModalProps) {
       'Valor Bruto', 'Comissao Venda', 'Comissao Frete',
       'Frete e Taxas', 'Liquido Recebido', 'Status'
     ];
-    const lines = [headers.join(',')];
+    const lines = [headers.join(CSV_DELIMITER)];
 
     rows.forEach(r => {
       lines.push([
@@ -118,16 +143,16 @@ export function ExportVendasModal({ isOpen, onClose }: ExportVendasModalProps) {
         escapeCsvValue(r.data),
         escapeCsvValue(r.loja),
         escapeCsvValue(r.marketplace),
-        escapeCsvValue(r.valorBruto.toFixed(2)),
-        escapeCsvValue(r.comissaoVenda.toFixed(2)),
-        escapeCsvValue(r.comissaoFrete.toFixed(2)),
-        escapeCsvValue(r.freteETaxas.toFixed(2)),
-        escapeCsvValue(r.liquidoRecebido.toFixed(2)),
+        escapeCsvValue(formatCsvNumber(r.valorBruto)),
+        escapeCsvValue(formatCsvNumber(r.comissaoVenda)),
+        escapeCsvValue(formatCsvNumber(r.comissaoFrete)),
+        escapeCsvValue(formatCsvNumber(r.freteETaxas)),
+        escapeCsvValue(formatCsvNumber(r.liquidoRecebido)),
         escapeCsvValue(r.status)
-      ].join(','));
+      ].join(CSV_DELIMITER));
     });
 
-    return lines.join('\n');
+    return lines.join('\r\n');
   };
 
   const downloadBlob = (content: BlobPart, mime: string, filename: string) => {
@@ -326,12 +351,12 @@ export function ExportVendasModal({ isOpen, onClose }: ExportVendasModalProps) {
                 <select
                   value={storeFilter}
                   onChange={(e) => setStoreFilter(e.target.value)}
-                  disabled={isExporting || isLoadingMeta}
+                  disabled={isExporting || isLoadingMeta || availableStores.length === 0}
                   className="w-full border border-gray-200 px-3 py-1.5 text-xs bg-gray-50/50 outline-none focus:border-gray-400 text-gray-700 cursor-pointer disabled:opacity-50"
                 >
                   <option value="all">{isLoadingMeta ? 'Carregando...' : 'Todas as lojas'}</option>
-                  {stores.map((storeId) => (
-                    <option key={storeId} value={storeId}>{storeId}</option>
+                  {availableStores.map((store) => (
+                    <option key={store.id} value={store.id}>{store.name || store.id}</option>
                   ))}
                 </select>
                 {isLoadingMeta && (
@@ -344,7 +369,7 @@ export function ExportVendasModal({ isOpen, onClose }: ExportVendasModalProps) {
               <div className="relative">
                 <select
                   value={marketplaceFilter}
-                  onChange={(e) => setMarketplaceFilter(e.target.value)}
+                  onChange={(e) => handleMarketplaceChange(e.target.value)}
                   disabled={isExporting || isLoadingMeta}
                   className="w-full border border-gray-200 px-3 py-1.5 text-xs bg-gray-50/50 outline-none focus:border-gray-400 text-gray-700 cursor-pointer disabled:opacity-50"
                 >
